@@ -4,11 +4,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import CountVectorizer
-
+from nltk.tag import pos_tag
 from sklearn.tree import DecisionTreeClassifier
 from nltk.stem import WordNetLemmatizer
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk.tokenize
+from sklearn.linear_model import LinearRegression
 from nltk.corpus import stopwords
 from sklearn.neural_network import MLPClassifier
 from collections import Counter
@@ -27,48 +29,55 @@ def get_json():
                     text2.append(review['text'])
                     content.append(text2)
                     user_scores.append(review['score'])
-
      return content,user_scores
-
-
 preprocess_text,user_scores=get_json()
-
-
+print(len(user_scores))
 #create a bow
 #tokenize
 #remove stopword
-
 stopwords = set(stopwords.words('english'))
-
 def preprocess_events(texts):
     preprocessed_texts = []
     lemmatizer = WordNetLemmatizer()
-
     for text in texts:
-        tokenized = nltk.word_tokenize(text)
+        tokenized = nltk.word_tokenize(text[0])
         stopwords_filtered = ""
-
+#pos_tag is used to lemmatization
         for word in tokenized:
-            a=word.lower()
+#get the tag of every word in one review
+            a=pos_tag([word])[0][1]
             if a.startswith("VB"):
-                newWord = lemmatizer.lemmatize(a, pos="v")
+                newWord = lemmatizer.lemmatize(word, pos="v")
             elif a.startswith("NN"):
-                newWord = lemmatizer.lemmatize(a, pos="n")
+                newWord = lemmatizer.lemmatize(word, pos="n")
             elif a.startswith("JJ"):
-                newWord = lemmatizer.lemmatize(a, pos="a")
+                newWord = lemmatizer.lemmatize(word, pos="a")
             elif a.startswith("R"):
-                newWord = lemmatizer.lemmatize(a, pos="r")
+                newWord = lemmatizer.lemmatize(word, pos="r")
             else:
-                newWord = lemmatizer.lemmatize(a)
+                newWord = lemmatizer.lemmatize(word)
             if newWord not in stopwords:
               stopwords_filtered = stopwords_filtered+" "+newWord
         preprocessed_texts.append(stopwords_filtered)
     return preprocessed_texts
 processed_train_text=preprocess_events(preprocess_text)
+#split the data into train dev test (80% 10% 10%)
+train_set,rest_set, train_classes, rest_classes=train_test_split(processed_train_text,
+                                                                 user_scores,
+                                                                 test_size=0.2,
+                                                                 )
+dev_set,test_set, dev_classes, test_classes=train_test_split(rest_set,
+                                                            rest_classes,
+                                                            test_size=0.5,
+                                                                 )
+#transform the data according to tfidf
+vectorizer = TfidfVectorizer()
+train=vectorizer.fit_transform(train_set)
+dev=vectorizer.transform(dev_set)
+test=vectorizer.transform(test_set)
 
-#processed_dev_text=preprocess_events(dev_text)
-
-#vectorizer = TfidfVectorizer(ngram_range=(2,2))
-#train_set=vectorizer.fit_transform(processed_train_text)
-#dev_set=vectorizer.transform(processed_dev_text)
-
+#train the models.
+clf=LinearRegression()
+clf.fit(train,train_classes)
+y_pred_train = clf.predict(dev)
+print(y_pred_train)
