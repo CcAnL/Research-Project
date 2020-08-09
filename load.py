@@ -12,11 +12,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk.tokenize
 from sklearn.linear_model import LinearRegression
 from nltk.corpus import stopwords
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import ElasticNet
+import math
+import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from collections import Counter
 from sklearn import svm
 from sklearn.feature_extraction import DictVectorizer
 #load the json file
+#get the user_reviews and scores
 def get_json():
     with open("game_spider_20_06_2015.jsonlines") as json_file:
      content=[]
@@ -25,13 +33,14 @@ def get_json():
             user_reviews=item['user_reviews']
             for review in user_reviews:
                 if review['text'] != "" :
+
                     text2=[]
                     text2.append(review['text'])
                     content.append(text2)
-                    user_scores.append(review['score'])
+                    user_scores.append(float(review['score']))
+
      return content,user_scores
 preprocess_text,user_scores=get_json()
-print(len(user_scores))
 #create a bow
 #tokenize
 #remove stopword
@@ -61,6 +70,7 @@ def preprocess_events(texts):
         preprocessed_texts.append(stopwords_filtered)
     return preprocessed_texts
 processed_train_text=preprocess_events(preprocess_text)
+
 #split the data into train dev test (80% 10% 10%)
 train_set,rest_set, train_classes, rest_classes=train_test_split(processed_train_text,
                                                                  user_scores,
@@ -77,7 +87,31 @@ dev=vectorizer.transform(dev_set)
 test=vectorizer.transform(test_set)
 
 #train the models.
-clf=LinearRegression()
-clf.fit(train,train_classes)
-y_pred_train = clf.predict(dev)
-print(y_pred_train)
+#evaluation metrics and visualization
+def algorithms(clfs):
+  for i, clf in enumerate(clfs):
+    clf.fit(train,train_classes)
+    y_pred_train = clf.predict(test)
+    RMSE = math.sqrt(mean_squared_error(test_classes, y_pred_train))
+    MAE=mean_absolute_error(test_classes, y_pred_train)
+    print(clf)
+    print(RMSE)
+    print(MAE)
+    plt.figure()
+    plt.ylabel("scores")
+    plt.title(clf)
+    plt.plot(y_pred_train, 'r', label='predicted scores')
+    plt.plot(test_classes, 'b', label='true scores')
+    plt.legend()
+    plt.savefig('./test_{}.jpg'.format(i))
+
+linear = LinearRegression()
+ridge = Ridge()
+lasso = Lasso()
+elasticnet = ElasticNet()
+clfs=[]
+clfs.append(linear)
+clfs.append(lasso)
+clfs.append(elasticnet)
+clfs.append(ridge)
+algorithms(clfs)
